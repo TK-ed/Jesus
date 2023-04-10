@@ -1,43 +1,90 @@
-//In bot.js
-const token = "MTA4NTIxOTc1NTYyOTIyODA0Mg.GziSJe.GHekVm8fZc3qeJ2BvO43_6q-u6ZJPoS2fbGQ8w" //Token that you 
-const { Client , IntentsBitField, roleMention } = require ('discord.js')
-const client = new Client ({
-    intents : [
-        IntentsBitField.Flags.Guilds,
-        IntentsBitField.Flags.GuildMembers,
-        IntentsBitField.Flags.GuildMessages,
-        IntentsBitField.Flags.MessageContent, 
-    ]
-})
+// importing the dependancies
+import * as dotenv from 'dotenv'
+dotenv.config()
 
-client.on('messageC')
+import { Configuration, OpenAIApi } from 'openai'
+import { Client , IntentsBitField } from 'discord.js'
 
+const client = new Client({
+  intents: [
+    IntentsBitField.Flags.Guilds,
+    IntentsBitField.Flags.GuildMessages,
+    IntentsBitField.Flags.MessageContent,
+  ],
+});
+
+// dotenv files declaring
+const key = process.env.KEY
+const channel = process.env.CHANNEL_ID
+
+// Login
 client.on('ready', (c) => {
     console.log(` ${c.user.username} vantaru ya yovvv!!!`);
 })
-  
+
+// Open AI configuration
+const configuration = new Configuration({
+  apiKey: key
+})
+const openai = new OpenAIApi(configuration);
+
+// Main Function which is gon loop
+client.on('messageCreate', async (message) => {
+  if (message.author.bot) return
+  if (message.channel.id !== channel ) return
+  if (message.content.startsWith('!')) return
+
+  let conversationLog = [{ role: 'system' , content: 'You are a funny bot. '}]
+
+  conversationLog.push({
+    role: 'user',
+    content: message.content,
+  })
+  try {
+    await message.channel.sendTyping();
+
+    let prevMessages = await message.channel.messages.fetch({ limit: 15 });
+    prevMessages.reverse();
+
+    prevMessages.forEach((msg) => {
+      if (message.content.startsWith('!')) return;
+      if (msg.author.id !== client.user.id && message.author.bot) return;
+      if (msg.author.id !== message.author.id) return;
+
+      conversationLog.push({
+        role: 'user',
+        content: msg.content,
+      });
+    });
+
+    const result = await openai
+      .createChatCompletion({
+        model: 'gpt-3.5-turbo',
+        messages: conversationLog,
+        // max_tokens: 256, // limit token usage
+      })
+      .catch((error) => {
+        console.log(`OPENAI ERR: ${error}`);
+      });
+
+    message.reply(result.data.choices[0].message);
+  } catch (error) {
+    console.log(`ERR: ${error}`);
+  }
+});
 
 client.on('messageCreate', (message) => {
-    if (message.content === 'yo') {
-        message.reply('Gommaaa!!')
-    }
-    if (message.content === 'karthare') {
-        message.reply('Pocha saathinu irra PUNDA!!')
-    }
+  console.log(message)
 })
 
+client.on('messageCreate', (message) => {
+      if (message.content === 'yo') {
+          message.reply('Gommaaa!!')
+      }
+      if (message.content === 'ping') {
+          message.reply('pong!!')
+      }
+  })
+  
 
-//client.on('reply', (roleMention) => {
-    //if(message.roleMention == user.client){
-    //    console.log('Hey YOU!! Yes YOU!!')
-  //  }
-//})
-
-//client.reply('hi', (r) => {
-  //  if(message.conten === 'hello'){
-    //    console.log('helloo')
-    //}
-//})
-
-
-client.login(token);
+client.login(process.env.TOKEN);
